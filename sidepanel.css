@@ -9,6 +9,7 @@ button { cursor: pointer; }
 header { position: sticky; z-index: 5; top: 0; display: flex; align-items: center; justify-content: space-between; height: 58px; margin: 0; padding: 0 15px; border-bottom: 1px solid var(--hairline-2); background: var(--topbar-bg); backdrop-filter: blur(15px); }
 .brand { display:flex; align-items:center; gap:7px; font-size:17px; font-weight:850; letter-spacing:-.5px; }
 .brand-icon { display:block; width:25px; height:25px; border-radius:6px; box-shadow:0 4px 12px -5px rgba(255,80,50,.6); }
+.header-actions { display:flex; align-items:center; gap:6px; }
 .icon-button { display:grid; place-items:center; width:33px; height:33px; border:1px solid var(--line); border-radius:9px; background:var(--field); color:var(--chip-text); }
 .icon-button:hover { color:var(--ink); border-color:var(--subtle); }
 .icon-button svg { width:16px; fill:none; stroke:currentColor; stroke-linecap:round; stroke-width:1.7; }

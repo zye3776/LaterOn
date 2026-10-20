@@ -644,6 +644,23 @@ newProjectButton?.addEventListener("click", async () => {
   }
 });
 
+// 顶部的「关闭侧栏」按钮。chrome.sidePanel.close 从 Chrome 141 起才有；
+// 更早的版本（manifest 允许到 121）没有这个方法，就退回 window.close()，
+// 和下面切换完整界面时的兜底是同一套做法。
+document.querySelector("#closePanel")?.addEventListener("click", async () => {
+  try {
+    const current = await chrome.windows?.getCurrent?.().catch(() => null);
+    const windowId = current?.id ?? (await chrome.tabs.query({ active: true, currentWindow: true }))[0]?.windowId;
+    if (windowId != null && typeof chrome.sidePanel?.close === "function") {
+      await chrome.sidePanel.close({ windowId });
+      return;
+    }
+  } catch (error) {
+    console.warn("关闭侧栏失败，改用 window.close()", error);
+  }
+  window.close();
+});
+
 document.querySelector("#openLibrary").addEventListener("click", async () => {
   let libraryOpened = false;
   try {
