@@ -273,6 +273,32 @@ const check = (label, ok, extra = "") => {
   check("这一篇被收进「等待整理」", !!fromPanel && (fromPanel.projectId || null) === null, `projectId=${JSON.stringify(fromPanel?.projectId)}`);
   check("诊断里记下这次来自面板按钮", store.laterOnDiag?.lastTrigger === "panel", store.laterOnDiag?.lastTrigger);
 
+  // 侧栏下方选中了某个项目：点按钮应直接收进该项目，而不是一律进「等待整理」。
+  store.laterOnItems = [];
+  const panelToProject = await sendFromPage({ type: "QUICK_SAVE_TAB", source: "panel", projectId: FOLDER_ID });
+  const intoProject = store.laterOnItems.find((i) => i.url === PAGE_URL);
+  check("侧栏选中项目时直接收进该项目", !!intoProject && intoProject.projectId === FOLDER_ID, `projectId=${JSON.stringify(intoProject?.projectId)}`);
+  check("结果里回传了所归入的项目", panelToProject?.ok === true && panelToProject?.projectId === FOLDER_ID, JSON.stringify(panelToProject));
+  check("提示写明收进了哪个项目", /已添加到「工作」|Added to 工作/.test(pills[pills.length - 1]?.items?.[0]?.text || ""), JSON.stringify(pills[pills.length - 1]));
+
+  // 侧栏传来的项目已经不存在（刚被删掉）：退回「等待整理」，不能带着失效的项目 id。
+  store.laterOnItems = [];
+  await sendFromPage({ type: "QUICK_SAVE_TAB", source: "panel", projectId: "folder-gone" });
+  const intoMissing = store.laterOnItems.find((i) => i.url === PAGE_URL);
+  check("项目已不存在时退回「等待整理」", !!intoMissing && (intoMissing.projectId || null) === null, `projectId=${JSON.stringify(intoMissing?.projectId)}`);
+
+  // 开关打开 + 侧栏指定了项目：浮层里默认选中侧栏的项目，而不是上次用过的项目。
+  store.laterOnItems = [];
+  store.laterOnProjects = [{ id: FOLDER_ID, name: "工作", createdAt: 1 }, { id: "folder-life", name: "生活", createdAt: 2 }];
+  store[LAST_PROJECT_KEY] = FOLDER_ID;
+  store.laterOnSettings = { askFolderOnSingle: true, askFolderOnSingleOptIn: true };
+  await sendFromPage({ type: "QUICK_SAVE_TAB", source: "panel", projectId: "folder-life" });
+  const presetOverlay = overlays[overlays.length - 1];
+  check("浮层默认选中侧栏当前项目", presetOverlay?.payload?.selected === "folder-life", `selected=${JSON.stringify(presetOverlay?.payload?.selected)}`);
+  await sendFromPage({ type: "CANCEL_BATCH_SAVE" });
+  store.laterOnSettings = { askFolderOnSingle: false };
+  store.laterOnProjects = [{ id: FOLDER_ID, name: "工作", createdAt: 1 }];
+
   const badPage = await sendFromPage({ type: "QUICK_SAVE_TAB", source: "panel", tabId: 404 });
   check("页面无法收藏时按钮收到明确的失败原因", badPage?.ok === false && !!badPage?.error, JSON.stringify(badPage));
 

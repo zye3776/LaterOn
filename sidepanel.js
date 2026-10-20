@@ -588,7 +588,9 @@ saveButton.addEventListener("click", async () => {
   saveButton.disabled = true;
   // 统一交给后台处理（和快捷键、右键菜单同一条链路）：
   // 设置里打开「收藏单篇前先选项目」时，点这里同样会先在网页里弹出选项目浮层。
-  const response = await chrome.runtime.sendMessage({ type: "QUICK_SAVE_TAB", source: "panel" }).catch(() => null);
+  // 把侧栏下方当前选中的项目一起带上：新收藏直接归进这个项目，而不是一律进「等待整理」。
+  const projectId = activeProject === "unfiled" ? null : activeProject;
+  const response = await chrome.runtime.sendMessage({ type: "QUICK_SAVE_TAB", source: "panel", projectId }).catch(() => null);
   if (response?.ok && response.pending) {
     // 已经弹出浮层了，真正的收藏等用户在浮层里确认（结果会弹在网页上）。
     saveButton.disabled = false;

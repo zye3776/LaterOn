@@ -460,7 +460,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           sendResponse({ ok: false, error: (await usesEnglish()) ? "The current page can’t be added" : "当前页面无法添加" });
           return;
         }
-        const result = await quickSave(tab, message.source || "panel");
+        const result = await quickSave(tab, message.source || "panel", { projectId: message.projectId || null });
         // result.pending 为真 = 已经弹出选项目浮层，真正的收藏要等用户确认。
         sendResponse({ ok: true, ...(result || {}) });
       } catch (error) {
@@ -511,10 +511,12 @@ async function handleCommand(command, commandTab) {
   }
 }
 
-async function quickSave(tab, source = "shortcut") {
+async function quickSave(tab, source = "shortcut", { projectId = null } = {}) {
   const en = await usesEnglish();
+  // 侧栏可指定项目；项目已删除或归档时退回「等待整理」。
+  const chosen = await resolveProject(projectId);
   // 设置里打开了「收藏单篇前先选项目」：跟整窗收藏走同一套流程——
-  // 只在当前网页里弹出选项目浮层，用户选好之后再真正开始收藏。
+  // 在当前网页里弹出选项目浮层（默认选中侧栏指定的项目），选好之后再真正收藏。
   if (await shouldAskFolderForSingle()) {
     const storedItems = (await chrome.storage.local.get(STORAGE_KEY))[STORAGE_KEY] || [];
     const knownUrls = new Set(storedItems.map((entry) => normalizeUrl(entry.url)));
@@ -526,7 +528,7 @@ async function quickSave(tab, source = "shortcut") {
       lastRunAt: Date.now(),
       lastTabCount: 1
     });
-    return askFolderThenSave({ tabs: [tab], source, activeTab: tab, savedCount });
+    return askFolderThenSave({ tabs: [tab], source, activeTab: tab, savedCount, remembered: chosen.id ? chosen : null });
   }
 
   // 统一走 extractTabMetadata：它会在抓取前处理抖音「站内切换视频」的滞后问题，
@@ -540,7 +542,8 @@ async function quickSave(tab, source = "shortcut") {
     image: meta.image || "",
     favicon: meta.favicon || tab.favIconUrl || "",
     source: meta.source || safeHostname(fallbackUrl),
-    url: meta.url || fallbackUrl
+    url: meta.url || fallbackUrl,
+    projectId: chosen.id
   };
   const saved = await saveItem(baseItem);
   // 记一笔封面来源（设置页的「自检」会显示），万一某个站点抓不到封面就知道卡在哪层。
@@ -554,10 +557,12 @@ async function quickSave(tab, source = "shortcut") {
     ? (en ? `Details updated: ${pillTitle(baseItem.title)}` : `已更新信息：${pillTitle(baseItem.title)}`)
     : saved.duplicated
       ? (en ? "This page is already added" : "这个网页已经添加过了")
-      : (en ? `Added: ${pillTitle(baseItem.title)}` : `已添加：${pillTitle(baseItem.title)}`);
+      : chosen.id
+        ? (en ? `Added to ${chosen.name}: ${pillTitle(baseItem.title)}` : `已添加到「${chosen.name}」：${pillTitle(baseItem.title)}`)
+        : (en ? `Added: ${pillTitle(baseItem.title)}` : `已添加：${pillTitle(baseItem.title)}`);
   await showPagePills(tab.id, [message]).catch(() => {});
   // 把结果回传，好让侧边栏 / 工具栏小窗口的按钮显示正确的字样。
-  return { ok: true, duplicated: !!saved.duplicated, refreshed: !!saved.refreshed, updated: !!saved.updated };
+  return { ok: true, duplicated: !!saved.duplicated, refreshed: !!saved.refreshed, updated: !!saved.updated, projectId: saved.item?.projectId || null };
 }
 
 async function toggleTranslation(tab) {
@@ -797,7 +802,7 @@ async function saveItem(item, options = {}) {
       image: item.image || "",
       favicon: item.favicon || "",
       source: item.source || safeHostname(item.url),
-      projectId: null,
+      projectId: item.projectId || null,
       url: item.url,
       savedAt: Date.now(),
       status: "unread"
