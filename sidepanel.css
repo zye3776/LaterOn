@@ -34,6 +34,9 @@ main { padding:14px 13px 30px; }
 .filters { display:flex; gap:3px; }
 .filter { border:0; border-radius:99px; padding:5px 9px; background:transparent; color:var(--chip-text); font-size:10px; }
 .filter.active { background:var(--btn-soft); color:var(--ink); font-weight:700; }
+/* 「全部」右边的 ＋：新建项目。和筛选按钮同一排、同一圆角，但不参与筛选高亮。 */
+.new-project { border:0; border-radius:99px; padding:4px 8px; background:transparent; color:var(--chip-text); font-size:12px; line-height:1; }
+.new-project:hover { background:var(--btn-soft); color:var(--ink); }
 #itemCount { color:var(--subtle); font-size:10px; }
 .project-filters { display:flex; gap:5px; overflow-x:auto; margin:0 -13px 10px; padding:0 13px 3px; scrollbar-width:none; }
 .project-filters::-webkit-scrollbar { display:none; }

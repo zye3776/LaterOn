@@ -606,6 +606,44 @@ saveButton.addEventListener("click", async () => {
   }
 });
 
+// 「全部」右边的 ＋：弹出和全屏界面同款的输入框新建项目。
+// 写库交给后台的 CREATE_PROJECT（网页内浮层的「新建」也走这条），保证同名项目不会重复创建。
+// 创建成功后侧栏直接切到这个新项目，之后点「添加」就会收进它。
+const newProjectButton = document.querySelector("#newProject");
+newProjectButton?.addEventListener("click", async () => {
+  newProjectButton.disabled = true;
+  try {
+    const dialog = await ensureDialogLoaded();
+    const result = await dialog.prompt({
+      title: tr("newProject"),
+      message: tr("newProjectHint"),
+      fields: [{ name: "name", label: tr("projectNameLabel"), placeholder: tr("projectNamePlaceholder"), maxLength: 28 }],
+      confirmText: tr("create")
+    });
+    const name = String(result?.values?.name || "").trim();
+    if (!result?.ok || !name) return;
+    const response = await chrome.runtime.sendMessage({ type: "CREATE_PROJECT", name }).catch(() => null);
+    const project = response?.ok ? response.project : null;
+    if (!project) {
+      status.textContent = response?.error || tr("createProjectFailed");
+      return;
+    }
+    // 后台写库后 storage.onChanged 会再同步一次；这里先把新项目放进本地列表，
+    // 让它立刻能被选中，不用等那一拍。
+    if (!projects.some((entry) => entry.id === project.id)) projects = [...projects, project];
+    activeProject = project.id;
+    renderProjectFilters();
+    render();
+    chrome.storage.local.set({ [ACTIVE_PROJECT_KEY]: activeProject }).catch(() => {});
+    status.textContent = tr(response.existed ? "projectExists" : "projectCreated", { name: project.name });
+  } catch (error) {
+    console.error("新建项目失败", error);
+    status.textContent = tr("createProjectFailed");
+  } finally {
+    newProjectButton.disabled = false;
+  }
+});
+
 document.querySelector("#openLibrary").addEventListener("click", async () => {
   let libraryOpened = false;
   try {
